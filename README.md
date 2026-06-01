@@ -1,11 +1,24 @@
+# Perso — Rule Builder
 
-  # full flow
+Interactive Rule Builder prototype (Folloze editor + matrix rule table).
 
-  This is a code bundle for full flow. The original project is available at https://www.figma.com/design/N25l89bvC2HmbyEMjaT7ru/full-flow.
+**Live demo:** https://azurashay.github.io/perso/
 
-  ## Running the code
+Original Figma: https://www.figma.com/design/N25l89bvC2HmbyEMjaT7ru/full-flow
 
-  Run `npm i` to install the dependencies.
+## Run locally
 
-  Run `npm run dev` to start the development server.
-  
+```bash
+git clone https://github.com/azurashay/perso.git
+cd perso
+pnpm install
+pnpm dev
+```
+
+Open http://localhost:5173
+
+## Build
+
+```bash
+pnpm build
+```
