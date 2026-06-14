@@ -1363,8 +1363,21 @@ function MatrixAndLabel() {
   );
 }
 
+function isMatrixCellEmpty(selection?: AttributeValueSelection): boolean {
+  return !selection || selection.mode === "not_set" || (selection.mode === "specific_values" && selection.values.length === 0);
+}
+
+function matrixHasEmptyCells(rule: AdvancedRule): boolean {
+  for (const g of rule.groups) {
+    for (const attr of rule.attributes) {
+      if (isMatrixCellEmpty(g.valuesByAttributeId[attr.id])) return true;
+    }
+  }
+  return false;
+}
+
 function MatrixCellDisplay({ selection }: { selection?: AttributeValueSelection }) {
-  if (!selection || selection.mode === "not_set" || (selection.mode === "specific_values" && selection.values.length === 0)) {
+  if (isMatrixCellEmpty(selection)) {
     return (
       <span className="font-['Open_Sans:Regular',sans-serif] text-[13px] italic text-[#bcccdc]">
         Click to add
@@ -1573,6 +1586,22 @@ function MatrixRulePopup({
   const [editing, setEditing] = useState<{ attrId: string; groupId: string; rect: DOMRect } | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [showEmptyWarning, setShowEmptyWarning] = useState(false);
+
+  const hasEmptyCells = matrixHasEmptyCells(rule);
+
+  useEffect(() => {
+    if (showEmptyWarning && !hasEmptyCells) setShowEmptyWarning(false);
+  }, [hasEmptyCells, showEmptyWarning]);
+
+  const handleDone = () => {
+    if (hasEmptyCells && !showEmptyWarning) {
+      setShowEmptyWarning(true);
+      return;
+    }
+    onDone(rule);
+    onClose();
+  };
 
   const reorderGroups = (from: number, to: number) => {
     if (from === to || to < 0 || to > rule.groups.length) return;
@@ -1790,16 +1819,24 @@ function MatrixRulePopup({
                     {rule.attributes.map((attr, attrIdx) => {
                       const sel = g.valuesByAttributeId[attr.id];
                       const isEditing = editing?.attrId === attr.id && editing.groupId === g.id;
+                      const isEmpty = isMatrixCellEmpty(sel);
+                      const highlightEmpty = showEmptyWarning && isEmpty;
                       return (
                         <Fragment key={attr.id}>
                           {attrIdx > 0 && (
                             <td className="border-b border-[#f1f5f9] bg-white w-[36px] min-w-[36px] align-middle" />
                           )}
-                          <td className="border-b border-l border-[#f1f5f9] p-0 align-middle">
+                          <td className={`border-b border-l p-0 align-middle ${highlightEmpty ? "border-[#fca5a5]" : "border-[#f1f5f9]"}`}>
                             <button
                               type="button"
                               onClick={(e) => handleCellClick(e, attr.id, g.id)}
-                              className={`w-full text-left px-[10px] py-[8px] transition-colors min-h-[40px] ${isEditing ? "bg-[#eff6ff]" : "bg-white hover:bg-[#f8fafc]"}`}
+                              className={`w-full text-left px-[10px] py-[8px] transition-colors min-h-[40px] ${
+                                isEditing
+                                  ? "bg-[#eff6ff]"
+                                  : highlightEmpty
+                                    ? "bg-[#fff5f5] ring-2 ring-inset ring-[#fca5a5] hover:bg-[#fef2f2]"
+                                    : "bg-white hover:bg-[#f8fafc]"
+                              }`}
                             >
                               <MatrixCellDisplay selection={sel} />
                             </button>
@@ -1816,21 +1853,35 @@ function MatrixRulePopup({
         </div>
 
         {/* Footer — Figma edit ads popup */}
-        <div className="bg-[#f4f7fb] flex items-center justify-end gap-[16px] px-[24px] py-[8px] rounded-bl-[4px] rounded-br-[4px] shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="bg-[#d9e2ec] hover:bg-[#cbd5e1] rounded-[4px] px-[16px] py-[6px] font-['Open_Sans:SemiBold',sans-serif] font-semibold text-[14px] leading-[1.5] text-[#102a43] transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => { onDone(rule); onClose(); }}
-            className="bg-[#00a0ff] hover:bg-[#0090e8] rounded-[4px] px-[16px] py-[6px] font-['Open_Sans:SemiBold',sans-serif] font-semibold text-[16px] leading-[1.5] text-white transition-colors"
-          >
-            Done
-          </button>
+        <div className="bg-[#f4f7fb] flex items-center justify-between gap-[16px] px-[24px] py-[8px] rounded-bl-[4px] rounded-br-[4px] shrink-0">
+          {showEmptyWarning && hasEmptyCells ? (
+            <div className="flex-1 min-w-0">
+              <p className="font-['Open_Sans:SemiBold',sans-serif] font-semibold text-[13px] leading-[1.4] text-[#dc2626]">
+                Some cells are empty
+              </p>
+              <p className="font-['Open_Sans:Regular',sans-serif] text-[12px] leading-[1.4] text-[#627d98]">
+                Empty cells will be ignored. Click Done anyway to continue.
+              </p>
+            </div>
+          ) : (
+            <div className="flex-1" />
+          )}
+          <div className="flex items-center gap-[16px] shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className="bg-[#d9e2ec] hover:bg-[#cbd5e1] rounded-[4px] px-[16px] py-[6px] font-['Open_Sans:SemiBold',sans-serif] font-semibold text-[14px] leading-[1.5] text-[#102a43] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDone}
+              className="bg-[#00a0ff] hover:bg-[#0090e8] rounded-[4px] px-[16px] py-[6px] font-['Open_Sans:SemiBold',sans-serif] font-semibold text-[16px] leading-[1.5] text-white transition-colors"
+            >
+              Done
+            </button>
+          </div>
         </div>
         </div>
       </div>
